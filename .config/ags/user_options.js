@@ -4,6 +4,11 @@
 //   options listed in this file will override the default ones in the above file
 
 const userConfigOptions = {
+    'weather': {
+        'city': "Tustin, California, United States",
+        'preferredUnit': "C", // Either C or F
+    }
 }
 
 export default userConfigOptions;
+

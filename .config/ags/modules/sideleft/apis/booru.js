@@ -15,6 +15,8 @@ import { SystemMessage } from './ai_chatmessage.js';
 const IMAGE_REVEAL_DELAY = 13; // Some wait for inits n other weird stuff
 const USER_CACHE_DIR = GLib.get_user_cache_dir();
 
+const API_KEY = process.env.SZURU_API_KEY; // API Key for szurubooru
+
 // Create cache folder and clear pics from previous session
 Utils.exec(`bash -c 'mkdir -p ${USER_CACHE_DIR}/ags/media/waifus'`);
 Utils.exec(`bash -c 'rm ${USER_CACHE_DIR}/ags/media/waifus/*'`);
@@ -67,12 +69,12 @@ const BooruInfo = () => {
                         className: 'txt-smallie txt-subtext',
                         wrap: true,
                         justify: Gtk.Justification.CENTER,
-                        label: getString('Powered by yande.re and konachan'),
+                        label: getString('Powered by Szurubooru'),
                     }),
                     Button({
                         className: 'txt-subtext txt-norm icon-material',
                         label: 'info',
-                        tooltipText: getString('An image booru. May contain NSFW content.\nWatch your back.\n\nDisclaimer: Not affiliated with the provider\nnor responsible for any of its content.'),
+                        tooltipText: getString('Locally hosted image booru on http://localhost:8080'),
                         setup: setupCursorHoverInfo,
                     }),
                 ]
@@ -133,6 +135,8 @@ const booruWelcome = Box({
         ]
     })
 });
+
+
 
 const BooruPage = (taglist, serviceName = 'Booru') => {
     const PageState = (icon, name) => Box({
@@ -212,44 +216,44 @@ const BooruPage = (taglist, serviceName = 'Booru') => {
                 children: [
                     Box({ hexpand: true }),
                     ImageAction({
-                        name: getString('Go to file url'),
-                        icon: 'file_open',
-                        action: () => execAsync(['xdg-open', `${data.file_url}`]).catch(print),
+                        name: getString('Favorite image'),
+                        icon: 'star',
+                        action: async () => {
+                            await makeFavorite(data.id);
+                        }
+                    }),
+                    ImageAction({
+                        name: getString('Open file'),
+                        icon: 'open_in_new',
+                        action: () => execAsync(['mpv', `${data.file_url}`]).catch(print),
+                    }),
+                    ImageAction({
+                        name: getString('Go to post'),
+                        icon: 'web',
+                        action: () => execAsync(['xdg-open', `http://localhost:8080/post/${data.id}`]).catch(print),
                     }),
                     ImageAction({
                         name: getString('Go to source'),
-                        icon: 'open_in_new',
+                        icon: 'search',
                         action: () => execAsync(['xdg-open', `${data.source}`]).catch(print),
                     }),
                     ImageAction({
-                        name: getString('Save image'),
-                        icon: 'save',
-                        action: (self) => {
-                            const currentTags = BooruService.queries.at(-1).realTagList.filter(tag => !tag.includes('rating:'));
-                            const tagDirectory = currentTags.join('+');
-                            const fileName = decodeURIComponent((data.file_url).substring((data.file_url).lastIndexOf('/') + 1));
-                            const saveCommand = `mkdir -p "$(xdg-user-dir PICTURES)/homework/${data.is_nsfw ? '🌶️/' : ''}${userOptions.sidebar.image.saveInFolderByTags ? tagDirectory : ''}" && curl -L -o "$(xdg-user-dir PICTURES)/homework/${data.is_nsfw ? '🌶️/' : ''}${userOptions.sidebar.image.saveInFolderByTags ? (tagDirectory + '/') : ''}${fileName}" '${data.file_url}'`;
-                            print(saveCommand)
+                        name: getString('Save to Wallpapers'),
+                        icon: 'note',
+                        action: async () => {
+                            const filePath = "$(xdg-user-dir PICTURES)/Wallpapers/.szuru";
+                            
+                            const fileName = `${data.id}.${data.file_ext}`;
+                            //const fileName = `${data.id}_${data.canvasWidth}x${data.canvasHeight}.${data.file_ext}`; // For some reason canvasWidth and Height are undefined...
+
+                            const saveCommand = `mkdir -p "${filePath}" && curl -L -o "${filePath}/${fileName}" "${data.file_url}"`;
+                            const setWallpaperCommand = `${App.configDir}/scripts/color_generation/switchwall.sh "${filePath}/${fileName}"`;
+
                             execAsync(['bash', '-c', saveCommand])
-                                .then(() => self.label = 'done')
-                                .catch(print);
-                        },
-                    }),
-                    ImageAction({
-                        name: getString('Set as wallpaper'),
-                        icon: 'wallpaper',
-                        action: (self) => {
-                            const currentTags = BooruService.queries.at(-1).realTagList.filter(tag => !tag.includes('rating:'));
-                            let fileExtension = data.file_ext || 'jpg';
-                            print(data)
-                            const fileName = decodeURIComponent((data.file_url).substring((data.file_url).lastIndexOf('/') + 1));
-                            const saveCommand = `mkdir -p "$(xdg-user-dir PICTURES)/Wallpapers" && curl -L -o "$(xdg-user-dir PICTURES)/Wallpapers/${fileName}" '${data.file_url}'`;
-                            const setWallpaperCommand = `${App.configDir}/scripts/color_generation/switchwall.sh "$(xdg-user-dir PICTURES)/Wallpapers/${fileName}"`;
-                            // const 
-                            execAsync(['bash', '-c', `${saveCommand} && ${setWallpaperCommand}`])
-                                .then(() => self.label = 'done')
-                                .catch(print);
-                        },
+                                .then(() => execAsync(['bash', '-c', setWallpaperCommand]))
+                                .then(() => addToPool(4, data.id))
+                                .catch((error) => console.error("Error:", error));
+                        }
                     }),
                 ]
             })
@@ -477,9 +481,7 @@ export const booruCommands = Box({
     className: 'spacing-h-5',
     setup: (self) => {
         self.pack_end(CommandButton('/clear'), false, false, 0);
-        self.pack_end(CommandButton('+'), false, false, 0);
-        self.pack_end(CommandButton('/mode konachan', 'Konachan'), false, false, 0);
-        self.pack_end(CommandButton('/mode yandere', 'yande.re'), false, false, 0);
+        self.pack_end(CommandButton('/next'), false, false, 0);
         self.pack_start(Button({
             className: 'sidebar-chat-chip-toggle',
             setup: setupCursorHover,
@@ -535,3 +537,120 @@ export const sendMessage = (text) => {
     }
     else BooruService.fetch(text);
 }
+
+
+
+
+
+
+
+/*
+ * CUSTOM FUNCTIONS
+ */
+
+function logToFile(...messages) { // custom function to log some output to ~/.cache/ags/log.txt
+    const logFilePath = GLib.get_user_cache_dir() + "/ags/log.txt";
+    const logMessage = `[${new Date().toISOString()}] ${messages.join(" ")}\n`;
+
+    try {
+        GLib.file_set_contents(logFilePath, GLib.file_get_contents(logFilePath)[1] + logMessage);
+    } catch {
+        GLib.file_set_contents(logFilePath, logMessage); // Create file if it doesn't exist
+    }
+}
+
+async function addToPool(poolId, postId) {
+
+    // First get pool version (required for data)
+    try {
+        const poolResponse = await Utils.fetch(`http://localhost:8080/api/pool/${poolId}`, {
+            method: 'GET',
+            headers: {
+                'Authorization': Token `${API_KEY}`,
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            },
+        });
+
+        if (!poolResponse.ok) {
+            const errorText = await poolResponse.text();
+            logToFile("Failed to fetch pool data:", errorText);
+            throw new Error(`Error fetching pool data: ${poolResponse.status}`);
+        }
+
+        const poolData = await poolResponse.json();
+        const postsList = poolData.posts;
+
+        logToFile("Current post list:", JSON.stringify(postsList));
+
+        const data = {
+            version: poolData.version,
+            posts: [...postsList.map(post => post.id), postId], // Append new postId using spread
+        };
+
+        // Now able to add new postId to poolId
+        logToFile("Sending request to:", `http://localhost:8080/api/pool/${poolId}`);
+        //logToFile("Pool version:", poolData.version);
+
+        const response = await Utils.fetch(`http://localhost:8080/api/pool/${poolId}`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Token ${API_KEY}`,
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data) // Convert data to JSON
+        });
+        logToFile("Response status:", response.status);
+
+        if (!response.ok) {
+            const errorText = await response.text(); 
+            logToFile("Error response:", errorText);
+            throw new Error(`HTTP error ${response.status}: ${errorText}`);
+        }
+
+        const responseData = await response.json();
+        logToFile("Success:", JSON.stringify(responseData));
+        return responseData; 
+
+    } catch (error) {
+        logToFile("Fetch error:", error);
+        throw error;
+    }
+}
+
+
+
+async function makeFavorite(postId) {
+    try {
+        logToFile("Sending request to:", `http://localhost:8080/api/post/${postId}/favorite`);
+        
+        const response = await Utils.fetch(`http://localhost:8080/api/post/${postId}/favorite`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Token ${API_KEY}`,
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            }
+        });
+
+        logToFile("Response status:", response.status);
+
+        if (!response.ok) {
+            const errorText = await response.text(); 
+            logToFile("Error response:", errorText);
+            throw new Error(`HTTP error ${response.status}: ${errorText}`);
+        }
+
+        const responseData = await response.json();
+        logToFile("Success:", JSON.stringify(responseData));
+        return data; 
+
+    } catch (error) {
+        logToFile("Fetch error:", error);
+        throw error;
+    }
+}
+
+
+

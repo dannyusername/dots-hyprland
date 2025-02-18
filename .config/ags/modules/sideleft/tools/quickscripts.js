@@ -44,7 +44,7 @@ const scripts = [
     {
         icon: 'arch-symbolic',
         name: getString('Update packages'),
-        command: `sudo pacman -Syyu`,
+        command: `sudo pacman -Syu`,
         enabled: isArchDistro,
     },
     {
