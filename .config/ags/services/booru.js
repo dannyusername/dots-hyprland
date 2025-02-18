@@ -1,20 +1,18 @@
 import Service from 'resource:///com/github/Aylur/ags/service.js';
 import * as Utils from 'resource:///com/github/Aylur/ags/utils.js';
+const { execAsync } = Utils;
+
+// Grabs system environment variable to set API Key
+Utils.execAsync(['bash', '-c', "cat /home/danny/Documents/szuru-api-key"]) // Useful Use of Cat
+    .then(apiKey => {
+        const API_KEY = apiKey.trim();
+    })
 
 const APISERVICES = {
     'szurubooru': {
         name: 'Szurubooru',
         endpoint: 'http://localhost:8080/api/posts'
     },
-    'yandere': {
-        name: 'yande.re',
-        endpoint: 'https://yande.re/post.json',
-    },
-    'konachan': {
-        name: 'Konachan',
-        endpoint: 'https://konachan.net/post.json',
-    },
-
 }
 
 const getWorkingImageSauce = (url) => {
@@ -38,6 +36,17 @@ function paramStringFromObj(params) {
             return `${key}=${value}`;
         })
         .join('&');
+}
+
+async function getAPIKey() {
+    // Grabs system environment variable to set API Key
+    try {
+        const apiKey = await Utils.execAsync(['bash', '-c', "cat ~/Documents/szuru-api-key"]);
+        return apiKey.trim();
+    } catch (error) {
+        console.error('Error fetching API key:', error);
+        return null; 
+    }
 }
 
 class BooruService extends Service {
@@ -116,15 +125,15 @@ class BooruService extends Service {
         };
         const paramString = paramStringFromObj(params);
         
-        const API_KEY = process.env.SZURU_API_KEY;
         const options = {
             method: 'GET',
             headers: {
-                'Authorization': `Token ${API_KEY}`,
+                'Authorization': `Token ${await getAPIKey()}`,
                 'Accept': 'application/json, image/png, image/jpeg, video/mp4, image/gif',
                 'Content-Type': 'application/json, image/png, image/jpeg, video/mp4, image/gif'
             }
         };
+
 
         let status = 0;
 

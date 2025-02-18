@@ -15,7 +15,7 @@ import { SystemMessage } from './ai_chatmessage.js';
 const IMAGE_REVEAL_DELAY = 13; // Some wait for inits n other weird stuff
 const USER_CACHE_DIR = GLib.get_user_cache_dir();
 
-const API_KEY = process.env.SZURU_API_KEY; // API Key for szurubooru
+
 
 // Create cache folder and clear pics from previous session
 Utils.exec(`bash -c 'mkdir -p ${USER_CACHE_DIR}/ags/media/waifus'`);
@@ -252,7 +252,7 @@ const BooruPage = (taglist, serviceName = 'Booru') => {
                             execAsync(['bash', '-c', saveCommand])
                                 .then(() => execAsync(['bash', '-c', setWallpaperCommand]))
                                 .then(() => addToPool(4, data.id))
-                                .catch((error) => console.error("Error:", error));
+                                .catch(print);
                         }
                     }),
                 ]
@@ -540,12 +540,8 @@ export const sendMessage = (text) => {
 
 
 
-
-
-
-
 /*
- * CUSTOM FUNCTIONS
+ * CUSTOM FUNCTIONS - These make most of the Szurubooru API requests
  */
 
 function logToFile(...messages) { // custom function to log some output to ~/.cache/ags/log.txt
@@ -566,7 +562,7 @@ async function addToPool(poolId, postId) {
         const poolResponse = await Utils.fetch(`http://localhost:8080/api/pool/${poolId}`, {
             method: 'GET',
             headers: {
-                'Authorization': Token `${API_KEY}`,
+                'Authorization': `Token ${await getAPIKey()}`,
                 'Accept': 'application/json',
                 'Content-Type': 'application/json'
             },
@@ -595,7 +591,7 @@ async function addToPool(poolId, postId) {
         const response = await Utils.fetch(`http://localhost:8080/api/pool/${poolId}`, {
             method: 'PUT',
             headers: {
-                'Authorization': `Token ${API_KEY}`,
+                'Authorization': `Token ${await getAPIKey()}`,
                 'Accept': 'application/json',
                 'Content-Type': 'application/json'
             },
@@ -628,7 +624,7 @@ async function makeFavorite(postId) {
         const response = await Utils.fetch(`http://localhost:8080/api/post/${postId}/favorite`, {
             method: 'POST',
             headers: {
-                'Authorization': `Token ${API_KEY}`,
+                'Authorization': `Token ${await getAPIKey()}`,
                 'Accept': 'application/json',
                 'Content-Type': 'application/json'
             }
@@ -652,5 +648,14 @@ async function makeFavorite(postId) {
     }
 }
 
-
+async function getAPIKey() {
+    // Grabs system environment variable to set API Key
+    try {
+        const apiKey = await Utils.execAsync(['bash', '-c', "cat ~/Documents/szuru-api-key"]);
+        return apiKey.trim();
+    } catch (error) {
+        console.error('Error fetching API key:', error);
+        return null; 
+    }
+}
 
