@@ -2,12 +2,6 @@ import Service from 'resource:///com/github/Aylur/ags/service.js';
 import * as Utils from 'resource:///com/github/Aylur/ags/utils.js';
 const { execAsync } = Utils;
 
-// Grabs system environment variable to set API Key
-Utils.execAsync(['bash', '-c', "cat /home/danny/Documents/szuru-api-key"]) // Useful Use of Cat
-    .then(apiKey => {
-        const API_KEY = apiKey.trim();
-    })
-
 const APISERVICES = {
     'szurubooru': {
         name: 'Szurubooru',
