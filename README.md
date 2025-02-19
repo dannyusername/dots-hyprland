@@ -4,7 +4,7 @@
 </div>
 
 <div align="center">
-    <h2>• overview •</h2>
+    <h2>• main changes •</h2>
     <h3></h3>
 </div>
 
@@ -18,3 +18,7 @@
 - Color changing scripts(.config/ags/scripts/color_generation)
     * switchwall.sh now uses waypaper (prettier GUI)
     * applycolor.sh - apply_hyprlock() function now uses sed to replace the path line in hyprlock.conf. Hyprlock now shows your wallpaper instead of a static color
+
+sideright.js (.config/ags/modules/sideright/sideright.js)
+    * Adds a line under uptime showing how many pacman packages have updates
+    * Uses checkupdates (from [pacman-contrib](https://archlinux.org/packages/extra/x86_64/pacman-contrib/))
