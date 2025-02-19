@@ -81,7 +81,6 @@ const timeRow = Box({
             setup: (self) => {
                 const getUptime = async () => {
                     try {
-                        await execAsync(['bash', '-c', 'uptime -p']);
                         return execAsync(['bash', '-c', `uptime -p | sed -e 's/...//;s/ day\\| days/d/;s/ hour\\| hours/h/;s/ minute\\| minutes/m/;s/,[^,]*//2'`]);
                     } catch {
                         return execAsync(['bash', '-c', 'uptime']).then(output => {
@@ -111,14 +110,20 @@ const timeRow = Box({
                     }
                 };
 
+                const getUpdates = async () => {
+                    return execAsync(['bash', '-c', 'checkupdates | wc -l']);
+                }
+
                 self.poll(5000, label => {
-                    getUptime().then(upTimeString => {
-                        label.label = `${getString("Uptime:"
-                        )} ${upTimeString}`;
-                    }).catch(err => {
-                        console.error(`Failed to fetch uptime: ${err}`);
-                    });
+                    Promise.all([getUptime(), getUpdates()])
+                        .then(([upTimeString, numUpdatesString]) => {
+                            label.label = `${getString("Uptime:")} ${upTimeString}\n${getString("Updates:")} ${numUpdatesString}`;
+                        })
+                        .catch(err => {
+                            console.error(`Failed to fetch data: ${err}`);
+                        });
                 });
+
             },
         }),
         Widget.Box({ hexpand: true }),
