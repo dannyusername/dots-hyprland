@@ -223,13 +223,8 @@ const BooruPage = (taglist, serviceName = 'Booru') => {
                         }
                     }),
                     ImageAction({
-                        name: getString('Open file'),
-                        icon: 'open_in_new',
-                        action: () => execAsync(['mpv', `${data.file_url}`]).catch(print),
-                    }),
-                    ImageAction({
                         name: getString('Go to post'),
-                        icon: 'web',
+                        icon: 'open_in_new',
                         action: () => execAsync(['xdg-open', `http://localhost:8080/post/${data.id}`]).catch(print),
                     }),
                     ImageAction({
