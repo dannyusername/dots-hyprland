@@ -1,14 +1,11 @@
 import Service from 'resource:///com/github/Aylur/ags/service.js';
 import * as Utils from 'resource:///com/github/Aylur/ags/utils.js';
+const { execAsync } = Utils;
 
 const APISERVICES = {
-    'yandere': {
-        name: 'yande.re',
-        endpoint: 'https://yande.re/post.json',
-    },
-    'konachan': {
-        name: 'Konachan',
-        endpoint: 'https://konachan.net/post.json',
+    'szurubooru': {
+        name: 'Szurubooru',
+        endpoint: 'http://localhost:8080/api/posts'
     },
 }
 
@@ -35,9 +32,20 @@ function paramStringFromObj(params) {
         .join('&');
 }
 
+async function getAPIKey() {
+    // Grabs system environment variable to set API Key
+    try {
+        const apiKey = await Utils.execAsync(['bash', '-c', "cat ~/Documents/szuru-api-key"]);
+        return apiKey.trim();
+    } catch (error) {
+        console.error('Error fetching API key:', error);
+        return null; 
+    }
+}
+
 class BooruService extends Service {
-    _baseUrl = 'https://yande.re/post.json';
-    _mode = 'yandere';
+    _baseUrl = 'http://localhost:8080/api/posts';
+    _mode = 'szurubooru';
     _nsfw = userOptions.sidebar.image.allowNsfw;
     _responses = [];
     _queries = [];
@@ -85,6 +93,7 @@ class BooruService extends Service {
 
         let taglist = [];
         let page = 1;
+        let limit = 10;
         // Construct body/headers
         for (let i = 0; i < userArgs.length; i++) {
             const thisArg = userArgs[i].trim();
@@ -100,57 +109,66 @@ class BooruService extends Service {
             page: page,
         });
         this.emit('newResponse', newMessageId);
+
+        const offset = (page - 1) * limit;
+
         const params = {
-            'tags': taglist.join('+'),
-            'page': `${page}`,
-            'limit': `${userOptions.sidebar.image.batchCount}`,
+            'offset': offset,
+            'limit': limit,
+            'query': taglist.join('+')
         };
         const paramString = paramStringFromObj(params);
-        // Fetch
-        // Note: body isn't included since passing directly to url is more reliable
+        
         const options = {
             method: 'GET',
-            headers: APISERVICES[this._mode].headers,
+            headers: {
+                'Authorization': `Token ${await getAPIKey()}`,
+                'Accept': 'application/json, image/png, image/jpeg, video/mp4, image/gif',
+                'Content-Type': 'application/json, image/png, image/jpeg, video/mp4, image/gif'
+            }
         };
+
+
         let status = 0;
-        // console.log(`${APISERVICES[this._mode].endpoint}?${paramString}`);
 
-        Utils.fetch(`${APISERVICES[this._mode].endpoint}?${paramString}`, options)
-            .then(result => {
-                status = result.status;
-                return result.text();
-            })
-            .then((dataString) => { // Store interesting stuff and emit
-                // console.log(dataString);
-                const parsedData = JSON.parse(dataString);
-                // console.log(parsedData)
-                this._responses[newMessageId] = parsedData.map(obj => {
-                    return {
-                        aspect_ratio: obj.width / obj.height,
-                        id: obj.id,
-                        tags: obj.tags,
-                        rating: obj.rating,
-                        is_nsfw: (obj.rating != 's'),
-                        md5: obj.md5,
-                        preview_url: obj.preview_url,
-                        preview_width: obj.preview_width,
-                        preview_height: obj.preview_height,
-                        sample_url: obj.sample_url,
-                        sample_width: obj.sample_width,
-                        sample_height: obj.sample_height,
-                        file_url: obj.file_url,
-                        file_ext: obj.file_ext,
-                        file_width: obj.file_width,
-                        file_height: obj.file_height,
-                        source: getWorkingImageSauce(obj.source),
-                    }
-                });
-                this.emit('updateResponse', newMessageId);
-            })
-            .catch(print);
+        try {
+            // Fetch from the Szurubooru API
+            const response = await Utils.fetch(`${APISERVICES[this._mode].endpoint}?${paramString}`, options);
+            const dataString = await response.text();
+            const parsedData = JSON.parse(dataString);
 
+            // Map the response data to your format
+            this._responses[newMessageId] = parsedData.results.map(post => ({
+                aspect_ratio: post.canvasWidth / post.canvasHeight,
+                id: post.id,
+                tags: post.tags.map(tag => tag.names.join(" ")).join(" "), // Handling multiple tag names
+                rating: post.safety,
+                is_nsfw: post.safety !== 'safe',
+                md5: post.checksumMD5,
+                preview_url: `http://localhost:8080/${post.thumbnailUrl}`,
+                preview_width: 200, // Adjust preview width as needed
+                preview_height: 200, // Adjust preview height as needed
+                sample_url: `http://localhost:8080/${post.contentUrl}`,
+                sample_width: post.canvasWidth,
+                sample_height: post.canvasHeight,
+                file_url: `http://localhost:8080/${post.contentUrl}`,
+                file_ext: post.mimeType.split("/")[1], // Extract file extension from mimeType
+                file_width: post.canvasWidth,
+                file_height: post.canvasHeight,
+                source: post.source || "Unknown",
+                score: post.score,
+                favoriteCount: post.favoriteCount,
+                ownFavorite: post.ownFavorite,
+                commentCount: post.commentCount,
+                pools: post.pools,
+                comments: post.comments,
+            }));
+
+            this.emit('updateResponse', newMessageId);
+        } catch (error) {
+            console.error('Failed to fetch Szurubooru posts:', error);
+        }
     }
 }
 
 export default new BooruService();
-

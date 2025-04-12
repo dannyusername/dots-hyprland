@@ -120,6 +120,7 @@ apply_hyprlock() {
   done
 
   cp "$CACHE_DIR"/user/generated/hypr/hyprlock.conf "$XDG_CONFIG_HOME"/hypr/hyprlock.conf
+  sed -i "s|^    path =.*|    path = $(swww query | awk -F'image: ' '{print $2}')|" ~/.config/hypr/hyprlock.conf # Uses current wallpaper as background instead of the template hyprlock.conf's black background
 }
 
 apply_ags_sourceview() {
