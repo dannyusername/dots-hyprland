@@ -70,11 +70,15 @@ export default (overviewMonitor = 0) => {
 
         if(c.length == 0) c = initialClass;
         const iconName = substitute(c);
-        const appIcon = iconExists(iconName) ? Widget.Icon({
+        // const appIcon = iconExists(iconName) ? Widget.Icon({
+        //     icon: iconName,
+        //     size: Math.min(w, h) * userOptions.overview.scale / 2.5,
+        // }) : MaterialIcon('terminal', 'gigantic', {
+        //     css: `font-size: ${Math.min(w, h) * userOptions.overview.scale / 2.5}px`,
+        // });
+        const appIcon = Widget.Icon({
             icon: iconName,
             size: Math.min(w, h) * userOptions.overview.scale / 2.5,
-        }) : MaterialIcon('terminal', 'gigantic', {
-            css: `font-size: ${Math.min(w, h) * userOptions.overview.scale / 2.5}px`,
         });
         return Widget.Button({
             attribute: {
